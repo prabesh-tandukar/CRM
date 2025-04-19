@@ -41,6 +41,12 @@
                             >
                                 Leads
                             </NavLink>
+                            <NavLink
+                                :href="route('deals.index')"
+                                :active="route().current('deals.*')"
+                            >
+                                Deals
+                            </NavLink>
                         </div>
                     </div>
 

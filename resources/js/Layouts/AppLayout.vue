@@ -35,6 +35,12 @@
                             >
                                 Contacts
                             </NavLink>
+                            <NavLink
+                                :href="route('leads.index')"
+                                :active="route().current('leads.*')"
+                            >
+                                Leads
+                            </NavLink>
                         </div>
                     </div>
 
@@ -47,7 +53,10 @@
                                             type="button"
                                             class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150"
                                         >
-                                            {{ $page.props.auth.user.name }}
+                                            {{
+                                                $page.props.auth.user?.name ||
+                                                "User"
+                                            }}
                                             <svg
                                                 class="ml-2 -mr-0.5 h-4 w-4"
                                                 xmlns="http://www.w3.org/2000/svg"
@@ -139,12 +148,17 @@
                 </div>
 
                 <div class="pt-4 pb-1 border-t border-gray-200">
-                    <div class="px-4">
+                    <div class="px-4" v-if="$page.props.auth.user">
                         <div class="font-medium text-base text-gray-800">
                             {{ $page.props.auth.user.name }}
                         </div>
                         <div class="font-medium text-sm text-gray-500">
                             {{ $page.props.auth.user.email }}
+                        </div>
+                    </div>
+                    <div class="px-4" v-else>
+                        <div class="font-medium text-base text-gray-800">
+                            Guest
                         </div>
                     </div>
 
@@ -185,4 +199,8 @@ import NavLink from "@/Components/NavLink.vue";
 import ResponsiveNavLink from "@/Components/ResponsiveNavLink.vue";
 
 const showingNavigationDropdown = ref(false);
+
+// const userName = computed(() => {
+//     return $page.props.auth?.user?.name || "User";
+// });
 </script>

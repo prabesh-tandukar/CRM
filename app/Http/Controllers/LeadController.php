@@ -165,15 +165,21 @@ class LeadController extends Controller
                 $query->with('assignee')->latest();
             },
         ]);
+
+        // Get notes separately to ensure they're loaded correctly
+        $notes = $lead->notes()->with('creator')->latest()->get();
+
+         // Check if user is authenticated before using Auth::user()->can()
+        $user = Auth::user();
         
         return Inertia::render('Leads/Show', [
             'lead' => $lead,
-            'isConverted' => !is_null($lead->converted_at),
-            'can' => [
-                'edit' => Auth::user()->can('edit-leads') || Auth::user()->hasRole(['Admin', 'Manager', 'Sales Rep']),
-                'delete' => Auth::user()->can('delete-leads') || Auth::user()->hasRole(['Admin', 'Manager']),
-                'convert' => (Auth::user()->can('convert-leads') || Auth::user()->hasRole(['Admin', 'Manager', 'Sales Rep'])) && is_null($lead->converted_at),
-            ]
+        'isConverted' => !is_null($lead->converted_at),
+        'can' => [
+            'edit' => $user && ($user->can('edit-leads') || $user->hasRole(['Admin', 'Manager', 'Sales Rep'])),
+            'delete' => $user && ($user->can('delete-leads') || $user->hasRole(['Admin', 'Manager'])),
+            'convert' => $user && (($user->can('convert-leads') || $user->hasRole(['Admin', 'Manager', 'Sales Rep'])) && is_null($lead->converted_at)),
+        ]
         ]);
     }
 
@@ -366,21 +372,27 @@ class LeadController extends Controller
                 ->with('error', 'Failed to convert lead: ' . $e->getMessage());
         }
     }
+    
+/**
+ * Add a note to the lead.
+ */
+public function addNote(Request $request, Lead $lead)
+{
+    // $this->authorize('edit-leads');
+    
+    $validated = $request->validate([
+        'title' => 'nullable|string|max:255',
+        'content' => 'required|string',
+    ]);
+    
+    $validated['created_by'] = Auth::id();
+    
+    $note = $lead->notes()->create($validated);
+    
+    return redirect()->back()->with('success', 'Note added successfully.');
+}
 
-    /**
-     * Add a note to the lead.
-     */
-    public function addNote(Request $request, Lead $lead)
-    {
-        $validated = $request->validate([
-            'title' => 'nullable|string|max:255',
-            'content' => 'required|string',
-        ]);
-        
-        $validated['created_by'] = Auth::id();
-        
-        $note = $lead->notes()->create($validated);
-        
-        return redirect()->back()->with('success', 'Note added successfully.');
-    }
+  
+
+   
 }

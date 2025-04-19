@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\LeadController;
+use App\Http\Controllers\DealController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -68,14 +69,12 @@ Route::post('leads/{lead}/convert', [LeadController::class, 'convert'])->name('l
 Route::post('leads/{lead}/notes', [LeadController::class, 'addNote'])->name('leads.add-note');
 
 // Placeholder routes for features under development
-// Deal routes
-Route::get('/deals/create', function() { 
-    return inertia('ComingSoon', ['feature' => 'Deal Creation']); 
-})->name('deals.create');
+// Deal Management Routes
+Route::resource('deals', DealController::class);
+Route::post('deals/{deal}/change-status', [DealController::class, 'changeStatus'])->name('deals.change-status');
+Route::post('deals/{deal}/notes', [DealController::class, 'addNote'])->name('deals.add-note');
+Route::get('deals/pipeline', [DealController::class, 'pipeline'])->name('deals.pipeline');
 
-Route::get('/deals/{id}', function($id) { 
-    return inertia('ComingSoon', ['feature' => 'Deal Details', 'id' => $id]); 
-})->name('deals.show');
 
 // Task routes
 Route::get('/tasks/create', function() { 

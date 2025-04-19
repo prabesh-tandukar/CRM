@@ -23,6 +23,18 @@
                             >
                                 Dashboard
                             </NavLink>
+                            <NavLink
+                                :href="route('companies.index')"
+                                :active="route().current('companies.*')"
+                            >
+                                Companies
+                            </NavLink>
+                            <NavLink
+                                :href="route('contacts.index')"
+                                :active="route().current('contacts.*')"
+                            >
+                                Contacts
+                            </NavLink>
                         </div>
                     </div>
 

@@ -4,6 +4,8 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\LeadController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -57,6 +59,13 @@ Route::post('contacts/{contact}/notes', [ContactController::class, 'addNote'])->
 
 // Company routes
 Route::resource('companies', CompanyController::class);
+Route::post('companies/{company}/notes', [CompanyController::class, 'addNote'])->name('companies.add-note');
+
+// Lead Management Routes
+Route::resource('leads', LeadController::class);
+Route::get('leads/{lead}/convert', [LeadController::class, 'showConvert'])->name('leads.convert.show');
+Route::post('leads/{lead}/convert', [LeadController::class, 'convert'])->name('leads.convert');
+Route::post('leads/{lead}/notes', [LeadController::class, 'addNote'])->name('leads.add-note');
 
 // Placeholder routes for features under development
 // Deal routes

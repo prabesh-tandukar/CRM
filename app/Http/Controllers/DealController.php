@@ -408,14 +408,21 @@ class DealController extends Controller
         return redirect()->back()->with('success', 'Note added successfully.');
     }
 
-    public function pipeline(Request $request)
+  /**
+ * Display the pipeline view of deals.
+ */
+public function pipeline(Request $request)
 {
     $search = $request->input('search', '');
     $ownerId = $request->input('owner_id');
     $companyId = $request->input('company_id');
     
+    // Get pipeline stages for proper ordering
+    $pipelineStages = PipelineStage::ordered()->get();
+    $stageNames = $pipelineStages->pluck('name')->toArray();
+    
     $query = Deal::with(['owner', 'company', 'primaryContact'])
-        // Use the won field instead of status
+        // Only show open and won deals in pipeline
         ->where(function ($query) {
             $query->whereNull('won')  // In progress deals
                   ->orWhere('won', true);  // Won deals
@@ -442,23 +449,22 @@ class DealController extends Controller
     
     $deals = $query->get();
     
-    // Get stats using the won field instead of status
+    // Calculate statistics for each stage
     $dealStats = [
         'total_count' => $deals->count(),
         'total_value' => $deals->sum('amount'),
-        'qualification_count' => $deals->where('pipeline_stage', 'Qualification')->count(),
-        'qualification_value' => $deals->where('pipeline_stage', 'Qualification')->sum('amount'),
-        'needs_analysis_count' => $deals->where('pipeline_stage', 'Needs Analysis')->count(),
-        'needs_analysis_value' => $deals->where('pipeline_stage', 'Needs Analysis')->sum('amount'),
-        'proposal_count' => $deals->where('pipeline_stage', 'Proposal')->count(),
-        'proposal_value' => $deals->where('pipeline_stage', 'Proposal')->sum('amount'),
-        'negotiation_count' => $deals->where('pipeline_stage', 'Negotiation')->count(),
-        'negotiation_value' => $deals->where('pipeline_stage', 'Negotiation')->sum('amount'),
-        'won_count' => $deals->where('won', true)->count(),
-        'won_value' => $deals->where('won', true)->sum('amount'),
     ];
     
-    // Get owners for filter
+    // Add stats for each stage
+    foreach ($stageNames as $stage) {
+        $stageDeals = $deals->where('pipeline_stage', $stage);
+        $stageName = strtolower(str_replace(' ', '_', $stage));
+        
+        $dealStats["{$stageName}_count"] = $stageDeals->count();
+        $dealStats["{$stageName}_value"] = $stageDeals->sum('amount');
+    }
+    
+    // Get users for owner filter
     $owners = User::role(['Admin', 'Manager', 'Sales Rep'])->get(['id', 'name']);
     
     // Get companies for filter
@@ -468,6 +474,7 @@ class DealController extends Controller
         'deals' => $deals,
         'owners' => $owners,
         'companies' => $companies,
+        'pipelineStages' => $stageNames,
         'dealStats' => $dealStats,
         'filters' => [
             'search' => $search,

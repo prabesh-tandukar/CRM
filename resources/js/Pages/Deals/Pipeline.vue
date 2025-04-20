@@ -8,6 +8,7 @@
                 </h2>
                 <div>
                     <Link
+                        v-if="can.create"
                         :href="route('deals.create')"
                         class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
                     >
@@ -316,7 +317,7 @@
                                     draggable="true"
                                     @dragstart="dragStart($event, deal)"
                                 >
-                                    <DealCard :deal="deal" />
+                                    <deal-card :deal="deal" />
                                 </div>
                                 <div
                                     class="p-4 border-b border-gray-200 border-dashed text-center text-gray-400 hover:bg-purple-50"
@@ -365,7 +366,7 @@
                                     draggable="true"
                                     @dragstart="dragStart($event, deal)"
                                 >
-                                    <DealCard :deal="deal" />
+                                    <deal-card :deal="deal" />
                                 </div>
                                 <div
                                     class="p-4 border-b border-gray-200 border-dashed text-center text-gray-400 hover:bg-yellow-50"
@@ -411,7 +412,7 @@
                                     :key="deal.id"
                                     class="p-4 border-b border-gray-200 hover:bg-gray-50 last:border-b-0"
                                 >
-                                    <DealCard :deal="deal" />
+                                    <deal-card :deal="deal" />
                                 </div>
                                 <div
                                     class="p-4 border-b border-gray-200 border-dashed text-center text-gray-400 hover:bg-green-50"
@@ -458,7 +459,7 @@
                                     :key="deal.id"
                                     class="p-4 border-b border-gray-200 hover:bg-gray-50 last:border-b-0"
                                 >
-                                    <DealCard :deal="deal" />
+                                    <deal-card :deal="deal" />
                                 </div>
                                 <div
                                     class="p-4 border-b border-gray-200 border-dashed text-center text-gray-400 hover:bg-red-50"
@@ -489,19 +490,19 @@
                 <!-- Loss Reason (only for Closed Lost) -->
                 <div v-if="newStage === 'Closed Lost'" class="mt-4">
                     <InputLabel
-                        for="loss_reason"
+                        for="lost_reason"
                         value="Loss Reason (Required)"
                     />
                     <textarea
-                        id="loss_reason"
+                        id="lost_reason"
                         class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
-                        v-model="stageForm.loss_reason"
+                        v-model="stageForm.lost_reason"
                         rows="3"
                         required
                     ></textarea>
                     <InputError
                         class="mt-2"
-                        :message="stageForm.errors.loss_reason"
+                        :message="stageForm.errors.lost_reason"
                     />
                 </div>
 
@@ -515,7 +516,7 @@
                         :disabled="
                             stageForm.processing ||
                             (newStage === 'Closed Lost' &&
-                                !stageForm.loss_reason)
+                                !stageForm.lost_reason)
                         "
                         @click="updateDealStage"
                     >
@@ -528,7 +529,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { Link, useForm, router } from "@inertiajs/vue3";
 import AppLayout from "@/Layouts/AppLayout.vue";
 import Modal from "@/Components/Modal.vue";
@@ -536,6 +537,7 @@ import InputLabel from "@/Components/InputLabel.vue";
 import InputError from "@/Components/InputError.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
+import DealCard from "@/Components/DealCard.vue";
 import debounce from "lodash/debounce";
 
 const props = defineProps({
@@ -546,65 +548,6 @@ const props = defineProps({
     filters: Object,
     can: Object,
 });
-
-// Deal Card Component
-// Updated DealCard component for Pipeline.vue
-
-const DealCard = {
-    props: {
-        deal: Object,
-    },
-    template: `
-        <div>
-            <div class="mb-1">
-                <Link :href="route('deals.show', deal.id)" class="text-indigo-600 font-medium hover:text-indigo-900">
-                    {{ deal.name }}
-                </Link>
-            </div>
-            <div class="text-sm text-gray-600">
-                {{ deal.company ? deal.company.name : 'No Company' }}
-            </div>
-            <div class="mt-2 flex justify-between items-center">
-                <div class="text-sm font-bold">{{ formatCurrency(deal.amount) }}</div>
-                <div class="text-xs text-gray-500">{{ formatDate(deal.expected_close_date) }}</div>
-            </div>
-            <div class="mt-1" v-if="deal.owner">
-                <div class="flex items-center">
-                    <div class="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-xs text-indigo-600 mr-1">
-                        {{ deal.owner.name.charAt(0) }}
-                    </div>
-                    <div class="text-xs text-gray-600">{{ deal.owner.name }}</div>
-                </div>
-            </div>
-            <!-- Status indicator based on won field -->
-            <div v-if="deal.won !== null" class="mt-1 text-xs" :class="{
-                'text-green-600': deal.won === true,
-                'text-red-600': deal.won === false
-            }">
-                {{ deal.won ? 'Won' : 'Lost' }}
-            </div>
-        </div>
-    `,
-    methods: {
-        formatCurrency(value) {
-            if (!value) return "$0";
-            return new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "USD",
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
-            }).format(value);
-        },
-        formatDate(date) {
-            if (!date) return "";
-            const d = new Date(date);
-            return d.toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-            });
-        },
-    },
-};
 
 // Form and state
 const filters = ref({
@@ -621,8 +564,7 @@ const showUpdateModal = ref(false);
 
 const stageForm = useForm({
     pipeline_stage: "",
-    loss_reason: "",
-    status: "",
+    lost_reason: "",
 });
 
 function dragStart(event, deal) {
@@ -656,15 +598,11 @@ function updateDealStage() {
 
     stageForm.pipeline_stage = newStage.value;
 
-    // We'll use lost_reason instead of loss_reason to match your schema
-    if (newStage.value === "Closed Lost" && stageForm.loss_reason) {
-        stageForm.lost_reason = stageForm.loss_reason;
-        delete stageForm.loss_reason; // Remove the field that doesn't match schema
-    }
-
     stageForm.post(route("deals.change-status", selectedDeal.value.id), {
         onSuccess: () => {
             closeUpdateModal();
+            // Refresh the deals to update the UI
+            getDeals();
         },
     });
 }
@@ -689,6 +627,15 @@ function formatCurrency(value) {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     }).format(value);
+}
+
+function formatDate(date) {
+    if (!date) return "";
+    const d = new Date(date);
+    return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+    });
 }
 
 // Search and filtering

@@ -317,7 +317,7 @@
                                     draggable="true"
                                     @dragstart="dragStart($event, deal)"
                                 >
-                                    <deal-card :deal="deal" />
+                                    <DealCard :deal="deal" />
                                 </div>
                                 <div
                                     class="p-4 border-b border-gray-200 border-dashed text-center text-gray-400 hover:bg-purple-50"
@@ -366,7 +366,7 @@
                                     draggable="true"
                                     @dragstart="dragStart($event, deal)"
                                 >
-                                    <deal-card :deal="deal" />
+                                    <DealCard :deal="deal" />
                                 </div>
                                 <div
                                     class="p-4 border-b border-gray-200 border-dashed text-center text-gray-400 hover:bg-yellow-50"
@@ -412,7 +412,7 @@
                                     :key="deal.id"
                                     class="p-4 border-b border-gray-200 hover:bg-gray-50 last:border-b-0"
                                 >
-                                    <deal-card :deal="deal" />
+                                    <DealCard :deal="deal" />
                                 </div>
                                 <div
                                     class="p-4 border-b border-gray-200 border-dashed text-center text-gray-400 hover:bg-green-50"
@@ -459,7 +459,7 @@
                                     :key="deal.id"
                                     class="p-4 border-b border-gray-200 hover:bg-gray-50 last:border-b-0"
                                 >
-                                    <deal-card :deal="deal" />
+                                    <DealCard :deal="deal" />
                                 </div>
                                 <div
                                     class="p-4 border-b border-gray-200 border-dashed text-center text-gray-400 hover:bg-red-50"

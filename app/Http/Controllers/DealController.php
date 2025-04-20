@@ -249,7 +249,7 @@ class DealController extends Controller
             'tasks' => function ($query) {
                 $query->with('assignee')->latest();
             },
-            'convertedFromLead',
+            
         ]);
         
         // Calculate total value from product prices

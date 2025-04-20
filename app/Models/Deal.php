@@ -72,7 +72,7 @@ class Deal extends Model
     public function products()
     {
         return $this->belongsToMany(Product::class, 'deal_product')
-            ->withPivot(['quantity', 'unit_price', 'discount_percent', 'discount_amount', 'total_price'])
+            ->withPivot(['quantity', 'unit_price', 'discount_amount', 'discount_percent', 'total_price'])
             ->withTimestamps();
     }
 
@@ -141,7 +141,7 @@ class Deal extends Model
 
     public function scopeOpen($query)
     {
-        return $query->whereNull('won')->whereNull('lost_reason');
+        return $query->whereNull('won');
     }
 
     public function scopeClosingBetween($query, $startDate, $endDate)
@@ -163,6 +163,7 @@ class Deal extends Model
     {
         return $this->update([
             'won' => true,
+            'pipeline_stage' => 'Closed Won',
             'actual_close_date' => now(),
             'lost_reason' => null,
         ]);
@@ -172,6 +173,7 @@ class Deal extends Model
     {
         return $this->update([
             'won' => false,
+            'pipeline_stage' => 'Closed Lost',
             'actual_close_date' => now(),
             'lost_reason' => $reason,
         ]);
@@ -185,16 +187,68 @@ class Deal extends Model
             return false;
         }
 
-        return $this->update([
+        $data = [
             'pipeline_stage' => $stageName,
             'probability' => $stage->probability,
-        ]);
+        ];
+
+        // If moving to a closing stage, update won/lost status
+        if ($stage->is_won) {
+            $data['won'] = true;
+            $data['actual_close_date'] = now();
+            $data['lost_reason'] = null;
+        } else if ($stage->is_lost) {
+            $data['won'] = false;
+            $data['actual_close_date'] = now();
+        } else {
+            $data['won'] = null;
+            $data['actual_close_date'] = null;
+            $data['lost_reason'] = null;
+        }
+
+        return $this->update($data);
     }
 
     public function calculateTotalValue()
     {
-        return $this->products->sum(function ($product) {
+        $productTotal = $this->products->sum(function ($product) {
             return $product->pivot->total_price;
         });
+
+        // If products exist, use their total, otherwise use deal amount
+        return $productTotal > 0 ? $productTotal : $this->amount;
     }
+
+    // Accessor for total value - makes it available as $deal->total_value
+    public function getTotalValueAttribute()
+    {
+        return $this->calculateTotalValue();
+    }
+
+    // Accessor for stage color
+    public function getStageColorAttribute()
+    {
+        switch ($this->pipeline_stage) {
+            case 'Qualification':
+                return 'blue';
+            case 'Needs Analysis':
+                return 'indigo';
+            case 'Proposal':
+                return 'purple';
+            case 'Negotiation':
+                return 'yellow';
+            case 'Closed Won':
+                return 'green';
+            case 'Closed Lost':
+                return 'red';
+            default:
+                return 'gray';
+        }
+    }
+
+    // In App\Models\Deal.php
+public function convertedFromLead()
+{
+    return $this->belongsTo(Lead::class, 'lead_id');
+}
 }

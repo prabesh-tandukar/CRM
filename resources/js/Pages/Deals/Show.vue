@@ -259,4 +259,4 @@
                                                     </thead>
                                                     <tbody class="bg-white divide-y divide-gray-200">
                                                         <tr v-for="product in deal.products" :key="product.id">
-                                                            <td class="px-6 py-4 whit
+                                                            <td class="px-6 py-4 white>

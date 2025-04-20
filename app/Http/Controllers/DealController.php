@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Contact;
 use App\Models\Company;
 use App\Models\Product;
+use App\Models\PipelineStage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -22,7 +23,6 @@ class DealController extends Controller
         $search = $request->input('search', '');
         $sortField = $request->input('sortField', 'created_at');
         $sortDirection = $request->input('sortDirection', 'desc');
-        // $status = $request->input('status', '');
         $stage = $request->input('stage', '');
         $companyId = $request->input('company_id');
         
@@ -40,9 +40,6 @@ class DealController extends Controller
                       });
                 });
             })
-            // ->when($status, function ($query, $status) {
-            //     $query->where('status', $status);
-            // })
             ->when($stage, function ($query, $stage) {
                 $query->where('pipeline_stage', $stage);
             })
@@ -60,29 +57,32 @@ class DealController extends Controller
             ->appends($request->all());
             
         $companies = Company::select('id', 'name')->orderBy('name')->get();
-        $stages = Deal::distinct('pipeline_stage')->whereNotNull('pipeline_stage')->pluck('pipeline_stage');
+        
+        // Get pipeline stages from database if available, otherwise use hardcoded list
+        try {
+            $stages = PipelineStage::orderBy('display_order')->pluck('name');
+        } catch (\Exception $e) {
+            $stages = collect(['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost']);
+        }
         
         return Inertia::render('Deals/Index', [
             'deals' => $deals,
             'companies' => $companies,
-            'stages' => collect(['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'])
-                        ->merge($stages)->unique()->values(),
-            // 'statuses' => ['Open', 'Won', 'Lost'],
+            'stages' => $stages->unique()->values(),
             'filters' => [
                 'search' => $search,
                 'perPage' => $perPage,
                 'sortField' => $sortField,
                 'sortDirection' => $sortDirection,
-                // 'status' => $status,
                 'stage' => $stage,
                 'companyId' => $companyId,
             ],
             'stats' => [
                 'total' => Deal::count(),
-                // 'open' => Deal::where('status', 'Open')->count(),
-                // 'won' => Deal::where('status', 'Won')->count(),
-                // 'lost' => Deal::where('status', 'Lost')->count(),
-                // 'value' => Deal::where('status', 'Open')->sum('amount'),
+                'open' => Deal::whereNull('won')->count(),
+                'won' => Deal::where('won', true)->count(),
+                'lost' => Deal::where('won', false)->count(),
+                'value' => Deal::whereNull('won')->sum('amount'),
             ],
             'can' => [
                 'create' => Auth::user()->can('create-deals') || Auth::user()->hasRole(['Admin', 'Manager', 'Sales Rep']),
@@ -120,7 +120,14 @@ class DealController extends Controller
             $contacts = Contact::where('company_id', $companyId)->get(['id', 'first_name', 'last_name']);
         }
         
-        $products = Product::select('id', 'name', 'price')->get();
+        $products = Product::select('id', 'name', 'unit_price')->get();
+        
+        // Get pipeline stages from database if available, otherwise use hardcoded list
+        try {
+            $pipelineStages = PipelineStage::orderBy('display_order')->pluck('name');
+        } catch (\Exception $e) {
+            $pipelineStages = ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
+        }
         
         return Inertia::render('Deals/Create', [
             'users' => $users,
@@ -129,7 +136,7 @@ class DealController extends Controller
             'products' => $products,
             'preselectedContact' => $contact,
             'preselectedCompany' => $companyId ? Company::find($companyId) : null,
-            'pipelineStages' => ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'],
+            'pipelineStages' => $pipelineStages,
             'sources' => ['Website', 'Referral', 'Social Media', 'Email', 'Call', 'Other'],
         ]);
     }
@@ -147,10 +154,8 @@ class DealController extends Controller
             'pipeline_stage' => 'required|string|max:255',
             'probability' => 'nullable|integer|min:0|max:100',
             'expected_close_date' => 'nullable|date',
-            // 'status' => 'required|in:Open,Won,Lost',
             'source' => 'nullable|string|max:255',
             'description' => 'nullable|string',
-            // 'loss_reason' => 'nullable|required_if:status,Lost|string',
             'owner_id' => 'required|exists:users,id',
             'contacts' => 'nullable|array',
             'contacts.*.id' => 'required|exists:contacts,id',
@@ -162,13 +167,17 @@ class DealController extends Controller
             'products.*.discount' => 'nullable|numeric|min:0',
         ]);
         
-        // Set closed date if deal is won or lost
-        // if (in_array($validated['status'], ['Won', 'Lost'])) {
-        //     $validated['actual_close_date'] = now();
-        // }
-        
         // Set created_by
         $validated['created_by'] = Auth::id();
+        
+        // Set won/lost based on pipeline stage
+        if ($validated['pipeline_stage'] === 'Closed Won') {
+            $validated['won'] = true;
+            $validated['actual_close_date'] = now();
+        } else if ($validated['pipeline_stage'] === 'Closed Lost') {
+            $validated['won'] = false;
+            $validated['actual_close_date'] = now();
+        }
         
         // Create deal
         $deal = Deal::create($validated);
@@ -185,11 +194,31 @@ class DealController extends Controller
         // Attach products
         if (!empty($validated['products'])) {
             foreach ($validated['products'] as $productData) {
-                $deal->products()->attach($productData['id'], [
-                    'quantity' => $productData['quantity'],
-                    'unit_price' => $productData['unit_price'],
-                    'discount' => $productData['discount'] ?? 0,
-                ]);
+                $total_price = $productData['quantity'] * $productData['unit_price'];
+                if (isset($productData['discount']) && $productData['discount'] > 0) {
+                    $discount_amount = $productData['discount'];
+                    $total_price -= $discount_amount;
+                    
+                    // Calculate discount percent
+                    $original_price = $productData['quantity'] * $productData['unit_price'];
+                    $discount_percent = ($discount_amount / $original_price) * 100;
+                    
+                    $deal->products()->attach($productData['id'], [
+                        'quantity' => $productData['quantity'],
+                        'unit_price' => $productData['unit_price'],
+                        'discount_amount' => $discount_amount,
+                        'discount_percent' => round($discount_percent, 2),
+                        'total_price' => $total_price
+                    ]);
+                } else {
+                    $deal->products()->attach($productData['id'], [
+                        'quantity' => $productData['quantity'],
+                        'unit_price' => $productData['unit_price'],
+                        'discount_amount' => 0,
+                        'discount_percent' => 0,
+                        'total_price' => $total_price
+                    ]);
+                }
             }
         }
         
@@ -209,7 +238,7 @@ class DealController extends Controller
             'creator',
             'contacts',
             'products' => function ($query) {
-                $query->withPivot(['quantity', 'unit_price', 'discount']);
+                $query->withPivot(['quantity', 'unit_price', 'discount_amount', 'discount_percent', 'total_price']);
             },
             'notes' => function ($query) {
                 $query->with('creator')->latest();
@@ -223,9 +252,19 @@ class DealController extends Controller
             'convertedFromLead',
         ]);
         
+        // Calculate total value from product prices
+        $totalValue = $deal->products->sum(function ($product) {
+            return $product->pivot->total_price;
+        });
+        
+        // If no products, use the deal amount
+        if ($totalValue == 0 && $deal->amount) {
+            $totalValue = $deal->amount;
+        }
+        
         return Inertia::render('Deals/Show', [
             'deal' => $deal,
-            'totalValue' => $deal->total_value,
+            'totalValue' => $totalValue,
             'can' => [
                 'edit' => Auth::user()->can('edit-deals') || Auth::user()->hasRole(['Admin', 'Manager', 'Sales Rep']),
                 'delete' => Auth::user()->can('delete-deals') || Auth::user()->hasRole(['Admin', 'Manager']),
@@ -251,7 +290,14 @@ class DealController extends Controller
             $contacts = Contact::where('company_id', $deal->company_id)->get(['id', 'first_name', 'last_name']);
         }
         
-        $products = Product::select('id', 'name', 'price')->get();
+        $products = Product::select('id', 'name', 'unit_price')->get();
+        
+        // Get pipeline stages from database if available, otherwise use hardcoded list
+        try {
+            $pipelineStages = PipelineStage::orderBy('display_order')->pluck('name');
+        } catch (\Exception $e) {
+            $pipelineStages = ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
+        }
         
         return Inertia::render('Deals/Edit', [
             'deal' => $deal,
@@ -268,15 +314,15 @@ class DealController extends Controller
                     'name' => $product->name,
                     'quantity' => $product->pivot->quantity,
                     'unit_price' => $product->pivot->unit_price,
-                    'discount' => $product->pivot->discount,
-                    'total' => ($product->pivot->quantity * $product->pivot->unit_price) - $product->pivot->discount
+                    'discount' => $product->pivot->discount_amount ?? 0,
+                    'total' => $product->pivot->total_price
                 ];
             }),
             'users' => $users,
             'companies' => $companies,
             'contacts' => $contacts,
             'products' => $products,
-            'pipelineStages' => ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'],
+            'pipelineStages' => $pipelineStages,
             'sources' => ['Website', 'Referral', 'Social Media', 'Email', 'Call', 'Other'],
         ]);
     }
@@ -294,10 +340,8 @@ class DealController extends Controller
             'pipeline_stage' => 'required|string|max:255',
             'probability' => 'nullable|integer|min:0|max:100',
             'expected_close_date' => 'nullable|date',
-            // 'status' => 'required|in:Open,Won,Lost',
             'source' => 'nullable|string|max:255',
             'description' => 'nullable|string',
-            // 'loss_reason' => 'nullable|required_if:status,Lost|string',
             'owner_id' => 'required|exists:users,id',
             'contacts' => 'nullable|array',
             'contacts.*.id' => 'required|exists:contacts,id',
@@ -309,12 +353,18 @@ class DealController extends Controller
             'products.*.discount' => 'nullable|numeric|min:0',
         ]);
         
-        // Check if status changed to Won or Lost and update closed_date
-        // if ($deal->status !== $validated['status'] && in_array($validated['status'], ['Won', 'Lost'])) {
-        //     $validated['actual_close_date'] = now();
-        // } elseif ($deal->status !== $validated['status'] && $validated['status'] === 'Open') {
-        //     $validated['actual_close_date'] = null;
-        // }
+        // Set won/lost based on pipeline stage
+        if ($validated['pipeline_stage'] === 'Closed Won' && $deal->won !== true) {
+            $validated['won'] = true;
+            $validated['actual_close_date'] = now();
+        } else if ($validated['pipeline_stage'] === 'Closed Lost' && $deal->won !== false) {
+            $validated['won'] = false;
+            $validated['actual_close_date'] = now();
+        } else if ($validated['pipeline_stage'] !== 'Closed Won' && $validated['pipeline_stage'] !== 'Closed Lost') {
+            $validated['won'] = null;
+            $validated['actual_close_date'] = null;
+            $validated['lost_reason'] = null;
+        }
         
         // Update deal
         $deal->update($validated);
@@ -332,11 +382,31 @@ class DealController extends Controller
         $productsSync = [];
         if (!empty($validated['products'])) {
             foreach ($validated['products'] as $productData) {
-                $productsSync[$productData['id']] = [
-                    'quantity' => $productData['quantity'],
-                    'unit_price' => $productData['unit_price'],
-                    'discount' => $productData['discount'] ?? 0,
-                ];
+                $total_price = $productData['quantity'] * $productData['unit_price'];
+                if (isset($productData['discount']) && $productData['discount'] > 0) {
+                    $discount_amount = $productData['discount'];
+                    $total_price -= $discount_amount;
+                    
+                    // Calculate discount percent
+                    $original_price = $productData['quantity'] * $productData['unit_price'];
+                    $discount_percent = ($discount_amount / $original_price) * 100;
+                    
+                    $productsSync[$productData['id']] = [
+                        'quantity' => $productData['quantity'],
+                        'unit_price' => $productData['unit_price'],
+                        'discount_amount' => $discount_amount,
+                        'discount_percent' => round($discount_percent, 2),
+                        'total_price' => $total_price
+                    ];
+                } else {
+                    $productsSync[$productData['id']] = [
+                        'quantity' => $productData['quantity'],
+                        'unit_price' => $productData['unit_price'],
+                        'discount_amount' => 0,
+                        'discount_percent' => 0,
+                        'total_price' => $total_price
+                    ];
+                }
             }
         }
         $deal->products()->sync($productsSync);
@@ -360,36 +430,36 @@ class DealController extends Controller
      * Change the deal status.
      */
     public function changeStatus(Request $request, Deal $deal)
-{
-    $validated = $request->validate([
-        'pipeline_stage' => 'required|string|max:255',
-        'lost_reason' => 'nullable|required_if:pipeline_stage,Closed Lost|string',
-    ]);
-    
-    $updateData = ['pipeline_stage' => $validated['pipeline_stage']];
-    
-    // Set won/lost status based on pipeline stage
-    if ($validated['pipeline_stage'] === 'Closed Won') {
-        $updateData['won'] = true;
-        $updateData['actual_close_date'] = now();
-    } else if ($validated['pipeline_stage'] === 'Closed Lost') {
-        $updateData['won'] = false;
-        $updateData['actual_close_date'] = now();
+    {
+        $validated = $request->validate([
+            'pipeline_stage' => 'required|string|max:255',
+            'lost_reason' => 'nullable|required_if:pipeline_stage,Closed Lost|string',
+        ]);
         
-        if (isset($validated['lost_reason'])) {
-            $updateData['lost_reason'] = $validated['lost_reason'];
+        $updateData = ['pipeline_stage' => $validated['pipeline_stage']];
+        
+        // Set won/lost status based on pipeline stage
+        if ($validated['pipeline_stage'] === 'Closed Won') {
+            $updateData['won'] = true;
+            $updateData['actual_close_date'] = now();
+        } else if ($validated['pipeline_stage'] === 'Closed Lost') {
+            $updateData['won'] = false;
+            $updateData['actual_close_date'] = now();
+            
+            if (isset($validated['lost_reason'])) {
+                $updateData['lost_reason'] = $validated['lost_reason'];
+            }
+        } else {
+            // For other stages, reset the won/lost status
+            $updateData['won'] = null;
+            $updateData['actual_close_date'] = null;
+            $updateData['lost_reason'] = null;
         }
-    } else {
-        // For other stages, reset the won/lost status
-        $updateData['won'] = null;
-        $updateData['actual_close_date'] = null;
-        $updateData['lost_reason'] = null;
+        
+        $deal->update($updateData);
+        
+        return redirect()->back()->with('success', 'Deal updated successfully.');
     }
-    
-    $deal->update($updateData);
-    
-    return redirect()->back()->with('success', 'Deal updated successfully.');
-}
 
     /**
      * Add a note to the deal.
@@ -408,83 +478,87 @@ class DealController extends Controller
         return redirect()->back()->with('success', 'Note added successfully.');
     }
 
-  /**
- * Display the pipeline view of deals.
- */
-public function pipeline(Request $request)
-{
-    $search = $request->input('search', '');
-    $ownerId = $request->input('owner_id');
-    $companyId = $request->input('company_id');
-    
-    // Get pipeline stages for proper ordering
-    $pipelineStages = PipelineStage::ordered()->get();
-    $stageNames = $pipelineStages->pluck('name')->toArray();
-    
-    $query = Deal::with(['owner', 'company', 'primaryContact'])
-        // Only show open and won deals in pipeline
-        ->where(function ($query) {
-            $query->whereNull('won')  // In progress deals
-                  ->orWhere('won', true);  // Won deals
-        })
-        ->when($search, function ($query, $search) {
-            return $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhereHas('company', function ($q) use ($search) {
-                      $q->where('name', 'like', "%{$search}%");
-                  });
-            });
-        })
-        ->when($ownerId, function ($query, $ownerId) {
-            return $query->where('owner_id', $ownerId);
-        })
-        ->when($companyId, function ($query, $companyId) {
-            return $query->where('company_id', $companyId);
-        });
-    
-    // Only show deals owned by user unless admin/manager
-    if (!Auth::user()->hasRole(['Admin', 'Manager'])) {
-        $query->where('owner_id', Auth::id());
-    }
-    
-    $deals = $query->get();
-    
-    // Calculate statistics for each stage
-    $dealStats = [
-        'total_count' => $deals->count(),
-        'total_value' => $deals->sum('amount'),
-    ];
-    
-    // Add stats for each stage
-    foreach ($stageNames as $stage) {
-        $stageDeals = $deals->where('pipeline_stage', $stage);
-        $stageName = strtolower(str_replace(' ', '_', $stage));
+    /**
+     * Display the pipeline view of deals.
+     */
+    public function pipeline(Request $request)
+    {
+        $search = $request->input('search', '');
+        $ownerId = $request->input('owner_id');
+        $companyId = $request->input('company_id');
         
-        $dealStats["{$stageName}_count"] = $stageDeals->count();
-        $dealStats["{$stageName}_value"] = $stageDeals->sum('amount');
+        // Get pipeline stages for proper ordering
+        try {
+            $pipelineStages = PipelineStage::orderBy('display_order')->get();
+            $stageNames = $pipelineStages->pluck('name')->toArray();
+        } catch (\Exception $e) {
+            $stageNames = ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
+        }
+        
+        $query = Deal::with(['owner', 'company', 'primaryContact'])
+            // Only show open and won deals in pipeline
+            ->where(function ($query) {
+                $query->whereNull('won')  // In progress deals
+                      ->orWhere('won', true);  // Won deals
+            })
+            ->when($search, function ($query, $search) {
+                return $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhereHas('company', function ($q) use ($search) {
+                          $q->where('name', 'like', "%{$search}%");
+                      });
+                });
+            })
+            ->when($ownerId, function ($query, $ownerId) {
+                return $query->where('owner_id', $ownerId);
+            })
+            ->when($companyId, function ($query, $companyId) {
+                return $query->where('company_id', $companyId);
+            });
+        
+        // Only show deals owned by user unless admin/manager
+        if (!Auth::user()->hasRole(['Admin', 'Manager'])) {
+            $query->where('owner_id', Auth::id());
+        }
+        
+        $deals = $query->get();
+        
+        // Calculate statistics for each stage
+        $dealStats = [
+            'total_count' => $deals->count(),
+            'total_value' => $deals->sum('amount'),
+        ];
+        
+        // Add stats for each stage
+        foreach ($stageNames as $stage) {
+            $stageDeals = $deals->where('pipeline_stage', $stage);
+            $stageName = strtolower(str_replace(' ', '_', $stage));
+            
+            $dealStats["{$stageName}_count"] = $stageDeals->count();
+            $dealStats["{$stageName}_value"] = $stageDeals->sum('amount');
+        }
+        
+        // Get users for owner filter
+        $owners = User::role(['Admin', 'Manager', 'Sales Rep'])->get(['id', 'name']);
+        
+        // Get companies for filter
+        $companies = Company::orderBy('name')->get(['id', 'name']);
+        
+        return Inertia::render('Deals/Pipeline', [
+            'deals' => $deals,
+            'owners' => $owners,
+            'companies' => $companies,
+            'pipelineStages' => $stageNames,
+            'dealStats' => $dealStats,
+            'filters' => [
+                'search' => $search,
+                'owner_id' => $ownerId,
+                'company_id' => $companyId,
+            ],
+            'can' => [
+                'create' => Auth::user()->can('create-deals') || Auth::user()->hasRole(['Admin', 'Manager', 'Sales Rep']),
+                'edit' => Auth::user()->can('edit-deals') || Auth::user()->hasRole(['Admin', 'Manager', 'Sales Rep']),
+            ]
+        ]);
     }
-    
-    // Get users for owner filter
-    $owners = User::role(['Admin', 'Manager', 'Sales Rep'])->get(['id', 'name']);
-    
-    // Get companies for filter
-    $companies = Company::orderBy('name')->get(['id', 'name']);
-    
-    return Inertia::render('Deals/Pipeline', [
-        'deals' => $deals,
-        'owners' => $owners,
-        'companies' => $companies,
-        'pipelineStages' => $stageNames,
-        'dealStats' => $dealStats,
-        'filters' => [
-            'search' => $search,
-            'owner_id' => $ownerId,
-            'company_id' => $companyId,
-        ],
-        'can' => [
-            'create' => Auth::user()->can('create-deals') || Auth::user()->hasRole(['Admin', 'Manager', 'Sales Rep']),
-            'edit' => Auth::user()->can('edit-deals') || Auth::user()->hasRole(['Admin', 'Manager', 'Sales Rep']),
-        ]
-    ]);
-}
 }

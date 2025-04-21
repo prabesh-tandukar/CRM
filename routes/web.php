@@ -70,10 +70,11 @@ Route::post('leads/{lead}/notes', [LeadController::class, 'addNote'])->name('lea
 
 // Placeholder routes for features under development
 // Deal Management Routes
+Route::get('/deals/pipeline', [App\Http\Controllers\DealController::class, 'pipeline'])->name('deals.pipeline');
 Route::resource('deals', DealController::class);
 Route::post('deals/{deal}/change-status', [DealController::class, 'changeStatus'])->name('deals.change-status');
 Route::post('deals/{deal}/notes', [DealController::class, 'addNote'])->name('deals.add-note');
-Route::get('/deals/pipeline', [App\Http\Controllers\DealController::class, 'pipeline'])->name('deals.pipeline');
+
 
 
 // Task routes

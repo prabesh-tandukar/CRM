@@ -7,6 +7,8 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\DealController;
+use App\Http\Controllers\TaskController;
+use App\Http\Controllers\DocumentController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -75,15 +77,13 @@ Route::resource('deals', DealController::class);
 Route::post('deals/{deal}/change-status', [DealController::class, 'changeStatus'])->name('deals.change-status');
 Route::post('deals/{deal}/notes', [DealController::class, 'addNote'])->name('deals.add-note');
 
+// Task Management Routes
+Route::resource('tasks', TaskController::class);
+Route::post('tasks/{task}/update-status', [TaskController::class, 'updateStatus'])->name('tasks.update-status');
 
 
-// Task routes
-Route::get('/tasks/create', function() { 
-    return inertia('ComingSoon', ['feature' => 'Task Creation']); 
-})->name('tasks.create');
-
-Route::get('/tasks/{id}', function($id) { 
-    return inertia('ComingSoon', ['feature' => 'Task Details', 'id' => $id]); 
-})->name('tasks.show');
+// Document Management Routes
+Route::resource('documents', DocumentController::class);
+Route::get('documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
 
 require __DIR__.'/auth.php';

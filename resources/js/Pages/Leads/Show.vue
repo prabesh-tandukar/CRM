@@ -1,33 +1,35 @@
 <!-- resources/js/Pages/Leads/Show.vue -->
 <template>
     <AppLayout :title="`${lead.first_name} ${lead.last_name}`">
-        <template #header>
+        <template #header-title>
             <div class="flex items-center justify-between">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">
                     Lead Details
                 </h2>
-                <div class="flex space-x-2">
-                    <Link
-                        v-if="can.convert && !isConverted"
-                        :href="route('leads.convert.show', lead.id)"
-                        class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition ease-in-out duration-150"
-                    >
-                        Convert Lead
-                    </Link>
-                    <Link
-                        v-if="can.edit && !isConverted"
-                        :href="route('leads.edit', lead.id)"
-                        class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
-                    >
-                        Edit Lead
-                    </Link>
-                    <Link
-                        :href="route('leads.index')"
-                        class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
-                    >
-                        Back to Leads
-                    </Link>
-                </div>
+            </div>
+        </template>
+        <template #header-actions>
+            <div class="flex space-x-2">
+                <Link
+                    v-if="can.convert && !isConverted"
+                    :href="route('leads.convert.show', lead.id)"
+                    class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                >
+                    Convert Lead
+                </Link>
+                <Link
+                    v-if="can.edit && !isConverted"
+                    :href="route('leads.edit', lead.id)"
+                    class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                >
+                    Edit Lead
+                </Link>
+                <Link
+                    :href="route('leads.index')"
+                    class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                >
+                    Back to Leads
+                </Link>
             </div>
         </template>
 

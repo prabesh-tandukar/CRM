@@ -2,11 +2,11 @@
 <template>
     <AppLayout title="Create Contact">
         <template #header-title>
-            <!-- <div class="flex items-center justify-between"> -->
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Create Contact
-            </h2>
-            <!-- </div> -->
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">
+                    Create Contact
+                </h2>
+            </div>
         </template>
 
         <div class="py-12">

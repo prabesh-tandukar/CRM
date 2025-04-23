@@ -1,7 +1,7 @@
 <!-- resources/js/Pages/Leads/Convert.vue -->
 <template>
     <AppLayout title="Convert Lead">
-        <template #header>
+        <template #header-title>
             <div class="flex items-center justify-between">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">
                     Convert Lead: {{ lead.first_name }} {{ lead.last_name }}

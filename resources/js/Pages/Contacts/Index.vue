@@ -2,12 +2,10 @@
 <template>
     <AppLayout title="Contacts">
         <template #header-title>
-            <!-- <div class="flex items-center justify-between"> -->
             <h2 class="text-xl font-semibold leading-tight text-gray-800">
                 Contacts
             </h2>
         </template>
-        <!-- <div class="flex items-center space-x-4"> -->
         <template #header-actions>
             <Link
                 v-if="can.create"
@@ -30,8 +28,6 @@
                 </svg>
                 Add Contact
             </Link>
-            <!-- </div> -->
-            <!-- </div> -->
         </template>
 
         <div class="py-12">

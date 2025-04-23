@@ -1,7 +1,7 @@
 <!-- resources/js/Pages/Companies/Index.vue -->
 <template>
     <AppLayout title="Companies">
-        <template #header>
+        <template #header-title>
             <div class="flex items-center justify-between">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">
                     Companies

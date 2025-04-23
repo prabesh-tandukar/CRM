@@ -1,7 +1,7 @@
 <!-- resources/js/Pages/Documents/Create.vue -->
 <template>
     <AppLayout title="Upload Document">
-        <template #header>
+        <template #header-title>
             <div class="flex items-center justify-between">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">
                     Upload Document

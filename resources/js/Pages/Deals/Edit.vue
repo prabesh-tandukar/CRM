@@ -1,7 +1,7 @@
 <!-- resources/js/Pages/Deals/Edit.vue -->
 <template>
     <AppLayout title="Edit Deal">
-        <template #header>
+        <template #header-title>
             <div class="flex items-center justify-between">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">
                     Edit Deal

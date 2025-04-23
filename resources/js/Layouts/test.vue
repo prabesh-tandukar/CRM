@@ -1,15 +1,15 @@
 <!-- resources/js/Pages/Contacts/Create.vue -->
 <template>
     <AppLayout title="Create Contact">
+        <!-- Title goes in header-title slot -->
         <template #header-title>
-            <!-- <div class="flex items-center justify-between"> -->
             <h2 class="text-xl font-semibold leading-tight text-gray-800">
                 Create Contact
             </h2>
-            <!-- </div> -->
         </template>
 
-        <div class="py-12">
+        <!-- Form content -->
+        <div class="py-6">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <form @submit.prevent="submit" class="p-6">

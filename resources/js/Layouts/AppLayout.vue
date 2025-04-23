@@ -428,7 +428,7 @@
                                     </svg>
                                 </button>
                                 <div class="flex items-center ml-2 md:ml-0">
-                                    <slot name="header"></slot>
+                                    <slot name="header-title"></slot>
                                 </div>
                             </div>
 
@@ -489,6 +489,23 @@
                                         </form>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page Header with Actions -->
+                <div class="bg-white border-b border-gray-200">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div class="flex justify-between py-4">
+                            <!-- Left side: Additional header content if needed -->
+                            <div class="flex items-center">
+                                <slot name="header-content"></slot>
+                            </div>
+
+                            <!-- Right side: Action buttons -->
+                            <div class="flex items-center">
+                                <slot name="header-actions"></slot>
                             </div>
                         </div>
                     </div>
